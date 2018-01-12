@@ -11,7 +11,7 @@ echo Running on host `hostname`
 echo Time is `date`
 echo Directory is `pwd`
 echo Slurm job ID is $SLURM_JOB_ID
-echo This jobs runs on the following machines:
+echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
 #! Run the executable
