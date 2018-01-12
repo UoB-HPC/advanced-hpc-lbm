@@ -11,14 +11,14 @@ To compile type `make`. Editing the values for `CC` and `CFLAGS` in the Makefile
 
     $ make CFLAGS="-O3 -fopenmp -DDEBUG"
 
-Input parameter and obstacle files are all specified on the command line of the `d2q9-bgk.exe` executable.
+Input parameter and obstacle files are all specified on the command line of the `d2q9-bgk` executable.
 
 Usage:
 
-    $ ./d2q9-bgk.exe <paramfile> <obstaclefile>
+    $ ./d2q9-bgk <paramfile> <obstaclefile>
 eg:
 
-    $ ./d2q9-bgk.exe input_256x256.params obstacles_256x256.dat
+    $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 
 ## Checking results
 
@@ -73,7 +73,7 @@ modify `job_submit_d2q9-bgk` to update the value assigned to `options`.
 Running times were taken on a Phase 3 node.
 - 128x128
 ```
-./d2q9-bgk.exe  input_128x128.params obstacles_128x128.dat
+./d2q9-bgk  input_128x128.params obstacles_128x128.dat
 ==done==
 Reynolds number:        9.763598020526E+00
 Elapsed time:           105.484169 (s)
@@ -83,7 +83,7 @@ Elapsed system CPU time:    0.000999 (s)
 
 - 128x256
 ```
-./d2q9-bgk.exe  input_128x256.params obstacles_128x256.dat
+./d2q9-bgk  input_128x256.params obstacles_128x256.dat
 ==done==
 Reynolds number:        3.718483826704E+01
 Elapsed time:           213.228882 (s)
@@ -93,7 +93,7 @@ Elapsed system CPU time:    0.001999 (s)
 
 - 256x256
 ```
-./d2q9-bgk.exe  input_256x256.params obstacles_256x256.dat
+./d2q9-bgk  input_256x256.params obstacles_256x256.dat
 ==done==
 Reynolds number:        1.007703420252E+01
 Elapsed time:           855.444999 (s)
