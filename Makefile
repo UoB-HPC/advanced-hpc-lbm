@@ -3,7 +3,7 @@
 EXE=d2q9-bgk
 
 CC=gcc
-CFLAGS= -std=c99 -Wall -O3 -DDEBUG
+CFLAGS= -std=c99 -Wall -O3
 LIBS = -lm
 
 FINAL_STATE_FILE=./final_state.dat
@@ -23,4 +23,3 @@ check:
 
 clean:
 	rm -f $(EXE)
-
