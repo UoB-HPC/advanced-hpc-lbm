@@ -49,12 +49,12 @@
 ** if you choose a different obstacle file.
 */
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<math.h>
-#include<time.h>
-#include<sys/time.h>
-#include<sys/resource.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #define NSPEEDS         9
 #define FINALSTATEFILE  "final_state.dat"
