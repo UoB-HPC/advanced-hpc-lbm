@@ -43,7 +43,7 @@
 ** Note the names of the input parameter and obstacle files
 ** are passed on the command line, e.g.:
 **
-**   d2q9-bgk.exe input.params obstacles.dat
+**   ./d2q9-bgk input.params obstacles.dat
 **
 ** Be sure to adjust the grid dimensions in the parameter file
 ** if you choose a different obstacle file.
@@ -736,4 +736,3 @@ void usage(const char* exe)
   fprintf(stderr, "Usage: %s <paramfile> <obstaclefile>\n", exe);
   exit(EXIT_FAILURE);
 }
-
