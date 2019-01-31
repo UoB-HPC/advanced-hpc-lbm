@@ -1,28 +1,33 @@
-# HPC Coursework
+# Advanced HPC Coursework: LBM
 
-Base coursework for the Advanced High Performance Computing class.
+This is the base coursework for the Advanced High Performance Computing class.
+In this repository you will find:
 
-* Source code is in the `d2q9-bgk.c` file
+* Source code in the `d2q9-bgk.c` file
 * Results checking scripts are in the `check/` directory
 
 ## Compiling and running
 
-To compile type `make`. Editing the values for `CC` and `CFLAGS` in the Makefile can be used to enable different compiler options or use a different compiler. These can also be passed on the command line:
+To compile type `make`.
+Editing the values for `CC` and `CFLAGS` in the Makefile can be used to enable different compiler options or use a different compiler.
+These can also be passed on the command line:
 
     $ make CFLAGS="-O3 -fopenmp -DDEBUG"
 
-Input parameter and obstacle files are all specified on the command line of the `d2q9-bgk` executable.
-
-Usage:
+Input parameters and obstacle files are all specified on the command line of the `d2q9-bgk` executable:
 
     $ ./d2q9-bgk <paramfile> <obstaclefile>
-eg:
+
+For example:
 
     $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
 
 ## Checking results
 
-An automated result checking function is provided that requires you to load a particular Python module (`module load languages/anaconda2`). Running `make check` will check the output file (average velocities and final state) against some reference results. By default, it should look something like this:
+An automated result checking script is provided to validate your results.
+The script is written in Python, so you will need to load the `languages/python-2.7.6` module before using it.
+Running `make check` will check the output file (average velocities and final state) against some reference results.
+By default, it should look something like this:
 
     $ make check
     python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
@@ -36,13 +41,14 @@ An automated result checking function is provided that requires you to load a pa
 
     Both tests passed!
 
-This script takes both the reference results and the results to check (both average velocities and final state). This is also specified in the makefile and can be changed like the other options:
+This script takes both the reference results and the results to check (both average velocities and final state).
+This is also specified in the makefile and can be changed like the other options:
 
     $ make check REF_AV_VELS_FILE=check/128x256.av_vels.dat REF_FINAL_STATE_FILE=check/128x256.final_state.dat
     python check/check.py --ref-av-vels-file=check/128x256.av_vels.dat --ref-final-state-file=check/128x256.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat
     ...
 
-All the options for this script can be examined by passing the --help flag to it.
+All the options for this script can be examined by passing the `--help` flag to it.
 
     $ python check/check.py --help
     usage: check.py [-h] [--tolerance TOLERANCE] --ref-av-vels-file
@@ -50,28 +56,28 @@ All the options for this script can be examined by passing the --help flag to it
     ...
 
 
-## Running on BlueCrystal Phase 4
+## Running on BlueCrystal Phase 3
 
-When you wish to submit a job to the queuing system on BlueCrystal, you should use the job submission script provided.
+You can use the provided job script to run an LBM job through the BCp3 queueing system:
 
-    $ sbatch job_submit_d2q9-bgk
+    $ qsub job_submit_d2q9-bgk
 
-This will dispatch a job to the queue, which you can monitor using the
-`squeue` command:
+You can monitor the progress of your jobs using:
 
-    $ squeue -u $USER
+    $ qstat -u $USER
 
-When finished, the output from your job will be in a file called
-`d2q9-bgk.out`:
+There are [more instruction on how to use the queueing system in the getting started tutorial](https://github.com/UoB-HPC/hpc-course-getting-started/blob/master/3_Queueing_Systems.md).
+
+When finished, the output from your job will be in a file called `d2q9-bgk.out`:
 
     $ less d2q9-bgk.out
 
-If you wish to run a different set of input parameters, you should
-modify `job_submit_d2q9-bgk` to update the value assigned to `options`.
+If you wish to run a different set of input parameters, you should modify `job_submit_d2q9-bgk` with your chosen options.
 
 ## Checking submission content
 
-Before handing in the coursework, you can use the `check_submission.sh` script to make sure that your code builds in a clean environment. This will reduce the chances of the automarker failing to build or run your code.
+Before handing in the coursework, you can use the `check_submission.sh` script to make sure that your code builds in a clean environment.
+This will reduce the chances of the automarker failing to build or run your code.
 
 To use the script, simply run it from the directory containing the files you intend to submit:
 
@@ -88,50 +94,53 @@ If the submission checking script prints any errors, you should try to address t
 Note that `check_submission.sh` does _not_ run your code, and so you _cannot_ verify that the results produced by your application validate just by running this script. You should check the correctness of your results separately, e.g. using `make check`.
 
 
-# Serial output for sample inputs
-Running times were taken on a Phase 4 node.
-- 128x128
-```
-./d2q9-bgk  input_128x128.params obstacles_128x128.dat
-==done==
-Reynolds number:		9.751927375793E+00
-Elapsed time:			31.141698 (s)
-Elapsed user CPU time:		31.144229 (s)
-Elapsed system CPU time:	0.002000 (s)
-```
+## Serial output for sample inputs
 
-- 128x256
-```
-./d2q9-bgk  input_128x256.params obstacles_128x256.dat
-==done==
-Reynolds number:		3.715003967285E+01
-Elapsed time:			63.553739 (s)
-Elapsed user CPU time:		63.558292 (s)
-Elapsed system CPU time:	0.004000 (s)
-```
+This section shows running times for the provided code on a Phase 3 node.
 
-- 256x256
-```
-./d2q9-bgk  input_256x256.params obstacles_256x256.dat
-==done==
-Reynolds number:		1.005141162872E+01
-Elapsed time:			259.721668 (s)
-Elapsed user CPU time:		259.744916 (s)
-Elapsed system CPU time:	0.005000 (s)
-```
+- 128x128:
+    ```
+    $ ./d2q9-bgk input_128x128.params obstacles_128x128.dat
+    ==done==
+    Reynolds number:                9.751927375793E+00
+    Elapsed time:                   58.832851 (s)
+    Elapsed user CPU time:          58.837055 (s)
+    Elapsed system CPU time:        0.004999 (s)
+    ```
 
-- 1024x1024
-```
-./d2q9-bgk  input_1024x1024.params obstacles_1024x1024.dat
-==done==
-Reynolds number:		3.375851392746E+00
-Elapsed time:			1072.777873 (s)
-Elapsed user CPU time:		1072.855937 (s)
-Elapsed system CPU time:	0.018001 (s)
-```
+- 128x256:
+    ```
+    $ ./d2q9-bgk input_128x256.params obstacles_128x256.dat
+    ==done==
+    Reynolds number:                3.715003967285E+01
+    Elapsed time:                   118.999340 (s)
+    Elapsed user CPU time:          119.013907 (s)
+    Elapsed system CPU time:        0.002999 (s)
+    ```
 
-# Visualisation
+- 256x256:
+    ```
+    $ ./d2q9-bgk input_256x256.params obstacles_256x256.dat
+    ==done==
+    Reynolds number:                1.005141162872E+01
+    Elapsed time:                   477.089262 (s)
+    Elapsed user CPU time:          477.164459 (s)
+    Elapsed system CPU time:        0.005999 (s)
+    ```
+
+- 1024x1024:
+    ```
+    $ ./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+    ==done==
+    Reynolds number:                3.375851392746E+00
+    Elapsed time:                   1965.561403 (s)
+    Elapsed user CPU time:          1965.957129 (s)
+    Elapsed system CPU time:        0.015997 (s)
+    ```
+
+## Visualisation
 
 You can view the final state of the simulation by creating a .png image file using a provided Gnuplot script:
 
     $ gnuplot final_state.plt
+

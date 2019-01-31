@@ -18,7 +18,7 @@ echo "Unloading all modules"
 module purge
 
 echo "Loading default languages/intel module"
-module load languages/intel
+module load languages/intel-compiler-16-u2
 
 if [ -r "$ENV" ]; then
     echo "Sourcing $ENV"
@@ -54,7 +54,7 @@ else
 	Please ensure that you submit all source files in the submission directory:
 	    - Makefile
 	    - d2q9-bgk.c
-	    - env.sh (if used)
+	    - env.sh
 	    - Any other files needed to build that you've added, e.g. OpenCL kernel files.
 
 	Please also submit your report with the filename 'report.pdf'.
