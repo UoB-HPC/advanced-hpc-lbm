@@ -15,9 +15,10 @@ ENV=env.sh
 module list |& tail -n +2
 
 echo "Unloading all modules"
-module purge
+module purge &>/dev/null
 
 echo "Loading default languages/intel module"
+module load shared dot torque/4.2.4.1 moab/7.2.9 default-environment
 module load languages/intel-compiler-16-u2
 
 if [ -r "$ENV" ]; then
