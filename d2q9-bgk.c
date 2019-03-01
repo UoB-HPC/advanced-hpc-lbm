@@ -53,12 +53,20 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <string.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
+#include <CL/opencl.h>
+#endif
 
 #define NSPEEDS         9
 #define FINALSTATEFILE  "final_state.dat"
 #define AVVELSFILE      "av_vels.dat"
+#define OCLFILE         "kernels.cl"
 
 /* struct to hold the parameter values */
 typedef struct
@@ -71,6 +79,22 @@ typedef struct
   float accel;         /* density redistribution */
   float omega;         /* relaxation parameter */
 } t_param;
+
+/* struct to hold OpenCL objects */
+typedef struct
+{
+  cl_device_id      device;
+  cl_context        context;
+  cl_command_queue  queue;
+
+  cl_program program;
+  cl_kernel  accelerate_flow;
+  cl_kernel  propagate;
+
+  cl_mem cells;
+  cl_mem tmp_cells;
+  cl_mem obstacles;
+} t_ocl;
 
 /* struct to hold the 'speed' values */
 typedef struct
@@ -85,37 +109,40 @@ typedef struct
 /* load params, allocate memory, load obstacles & initialise fluid particle densities */
 int initialise(const char* paramfile, const char* obstaclefile,
                t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
-               int** obstacles_ptr, float** av_vels_ptr);
+               int** obstacles_ptr, float** av_vels_ptr, t_ocl* ocl);
 
 /*
 ** The main calculation methods.
 ** timestep calls, in order, the functions:
 ** accelerate_flow(), propagate(), rebound() & collision()
 */
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
-int accelerate_flow(const t_param params, t_speed* cells, int* obstacles);
-int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells);
-int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
+int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl);
+int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
+int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl ocl);
+int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl);
+int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl);
 int write_values(const t_param params, t_speed* cells, int* obstacles, float* av_vels);
 
 /* finalise, including freeing up allocated memory */
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
-             int** obstacles_ptr, float** av_vels_ptr);
+             int** obstacles_ptr, float** av_vels_ptr, t_ocl ocl);
 
 /* Sum all the densities in the grid.
 ** The total should remain constant from one timestep to the next. */
 float total_density(const t_param params, t_speed* cells);
 
 /* compute average velocity */
-float av_velocity(const t_param params, t_speed* cells, int* obstacles);
+float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
 
 /* calculate Reynolds number */
-float calc_reynolds(const t_param params, t_speed* cells, int* obstacles);
+float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl);
 
 /* utility functions */
+void checkError(cl_int err, const char *op, const int line);
 void die(const char* message, const int line, const char* file);
 void usage(const char* exe);
+
+cl_device_id selectOpenCLDevice();
 
 /*
 ** main program:
@@ -126,10 +153,12 @@ int main(int argc, char* argv[])
   char*    paramfile = NULL;    /* name of the input parameter file */
   char*    obstaclefile = NULL; /* name of a the input obstacle file */
   t_param  params;              /* struct to hold parameter values */
+  t_ocl    ocl;                 /* struct to hold OpenCL objects */
   t_speed* cells     = NULL;    /* grid containing fluid densities */
   t_speed* tmp_cells = NULL;    /* scratch space */
   int*     obstacles = NULL;    /* grid indicating which cells are blocked */
   float* av_vels   = NULL;     /* a record of the av. velocity computed for each timestep */
+  cl_int err;
   struct timeval timstr;        /* structure to hold elapsed time */
   struct rusage ru;             /* structure to hold CPU time--system and user */
   double tic, toc;              /* floating point numbers to calculate elapsed wallclock time */
@@ -148,16 +177,28 @@ int main(int argc, char* argv[])
   }
 
   /* initialise our data structures and load values from file */
-  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels);
+  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
 
   /* iterate for maxIters timesteps */
   gettimeofday(&timstr, NULL);
   tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
 
+  // Write cells to OpenCL buffer
+  err = clEnqueueWriteBuffer(
+    ocl.queue, ocl.cells, CL_TRUE, 0,
+    sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+  checkError(err, "writing cells data", __LINE__);
+
+  // Write obstacles to OpenCL buffer
+  err = clEnqueueWriteBuffer(
+    ocl.queue, ocl.obstacles, CL_TRUE, 0,
+    sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
+  checkError(err, "writing obstacles data", __LINE__);
+
   for (int tt = 0; tt < params.maxIters; tt++)
   {
-    timestep(params, cells, tmp_cells, obstacles);
-    av_vels[tt] = av_velocity(params, cells, obstacles);
+    timestep(params, cells, tmp_cells, obstacles, ocl);
+    av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
 #ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
@@ -175,89 +216,101 @@ int main(int argc, char* argv[])
 
   /* write final values and free memory */
   printf("==done==\n");
-  printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells, obstacles));
+  printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells, obstacles, ocl));
   printf("Elapsed time:\t\t\t%.6lf (s)\n", toc - tic);
   printf("Elapsed user CPU time:\t\t%.6lf (s)\n", usrtim);
   printf("Elapsed system CPU time:\t%.6lf (s)\n", systim);
   write_values(params, cells, obstacles, av_vels);
-  finalise(&params, &cells, &tmp_cells, &obstacles, &av_vels);
+  finalise(&params, &cells, &tmp_cells, &obstacles, &av_vels, ocl);
 
   return EXIT_SUCCESS;
 }
 
-int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles)
+int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
 {
-  accelerate_flow(params, cells, obstacles);
-  propagate(params, cells, tmp_cells);
-  rebound(params, cells, tmp_cells, obstacles);
-  collision(params, cells, tmp_cells, obstacles);
+  cl_int err;
+
+  // Write cells to device
+  err = clEnqueueWriteBuffer(
+    ocl.queue, ocl.cells, CL_TRUE, 0,
+    sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+  checkError(err, "writing cells data", __LINE__);
+
+  accelerate_flow(params, cells, obstacles, ocl);
+  propagate(params, cells, tmp_cells, ocl);
+
+  // Read tmp_cells from device
+  err = clEnqueueReadBuffer(
+    ocl.queue, ocl.tmp_cells, CL_TRUE, 0,
+    sizeof(t_speed) * params.nx * params.ny, tmp_cells, 0, NULL, NULL);
+  checkError(err, "reading tmp_cells data", __LINE__);
+
+  rebound(params, cells, tmp_cells, obstacles, ocl);
+  collision(params, cells, tmp_cells, obstacles, ocl);
   return EXIT_SUCCESS;
 }
 
-int accelerate_flow(const t_param params, t_speed* cells, int* obstacles)
+int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
 {
-  /* compute weighting factors */
-  float w1 = params.density * params.accel / 9.f;
-  float w2 = params.density * params.accel / 36.f;
+  cl_int err;
 
-  /* modify the 2nd row of the grid */
-  int jj = params.ny - 2;
+  // Set kernel arguments
+  err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells);
+  checkError(err, "setting accelerate_flow arg 0", __LINE__);
+  err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.obstacles);
+  checkError(err, "setting accelerate_flow arg 1", __LINE__);
+  err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_int), &params.nx);
+  checkError(err, "setting accelerate_flow arg 2", __LINE__);
+  err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_int), &params.ny);
+  checkError(err, "setting accelerate_flow arg 3", __LINE__);
+  err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_float), &params.density);
+  checkError(err, "setting accelerate_flow arg 4", __LINE__);
+  err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_float), &params.accel);
+  checkError(err, "setting accelerate_flow arg 5", __LINE__);
 
-  for (int ii = 0; ii < params.nx; ii++)
-  {
-    /* if the cell is not occupied and
-    ** we don't send a negative density */
-    if (!obstacles[ii + jj*params.nx]
-        && (cells[ii + jj*params.nx].speeds[3] - w1) > 0.f
-        && (cells[ii + jj*params.nx].speeds[6] - w2) > 0.f
-        && (cells[ii + jj*params.nx].speeds[7] - w2) > 0.f)
-    {
-      /* increase 'east-side' densities */
-      cells[ii + jj*params.nx].speeds[1] += w1;
-      cells[ii + jj*params.nx].speeds[5] += w2;
-      cells[ii + jj*params.nx].speeds[8] += w2;
-      /* decrease 'west-side' densities */
-      cells[ii + jj*params.nx].speeds[3] -= w1;
-      cells[ii + jj*params.nx].speeds[6] -= w2;
-      cells[ii + jj*params.nx].speeds[7] -= w2;
-    }
-  }
+  // Enqueue kernel
+  size_t global[1] = {params.nx};
+  err = clEnqueueNDRangeKernel(ocl.queue, ocl.accelerate_flow,
+                               1, NULL, global, NULL, 0, NULL, NULL);
+  checkError(err, "enqueueing accelerate_flow kernel", __LINE__);
+
+  // Wait for kernel to finish
+  err = clFinish(ocl.queue);
+  checkError(err, "waiting for accelerate_flow kernel", __LINE__);
 
   return EXIT_SUCCESS;
 }
 
-int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells)
+int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl ocl)
 {
-  /* loop over _all_ cells */
-  for (int jj = 0; jj < params.ny; jj++)
-  {
-    for (int ii = 0; ii < params.nx; ii++)
-    {
-      /* determine indices of axis-direction neighbours
-      ** respecting periodic boundary conditions (wrap around) */
-      int y_n = (jj + 1) % params.ny;
-      int x_e = (ii + 1) % params.nx;
-      int y_s = (jj == 0) ? (jj + params.ny - 1) : (jj - 1);
-      int x_w = (ii == 0) ? (ii + params.nx - 1) : (ii - 1);
-      /* propagate densities from neighbouring cells, following
-      ** appropriate directions of travel and writing into
-      ** scratch space grid */
-      tmp_cells[ii + jj*params.nx].speeds[0] = cells[ii + jj*params.nx].speeds[0]; /* central cell, no movement */
-      tmp_cells[ii + jj*params.nx].speeds[1] = cells[x_w + jj*params.nx].speeds[1]; /* east */
-      tmp_cells[ii + jj*params.nx].speeds[2] = cells[ii + y_s*params.nx].speeds[2]; /* north */
-      tmp_cells[ii + jj*params.nx].speeds[3] = cells[x_e + jj*params.nx].speeds[3]; /* west */
-      tmp_cells[ii + jj*params.nx].speeds[4] = cells[ii + y_n*params.nx].speeds[4]; /* south */
-      tmp_cells[ii + jj*params.nx].speeds[5] = cells[x_w + y_s*params.nx].speeds[5]; /* north-east */
-      tmp_cells[ii + jj*params.nx].speeds[6] = cells[x_e + y_s*params.nx].speeds[6]; /* north-west */
-      tmp_cells[ii + jj*params.nx].speeds[7] = cells[x_e + y_n*params.nx].speeds[7]; /* south-west */
-      tmp_cells[ii + jj*params.nx].speeds[8] = cells[x_w + y_n*params.nx].speeds[8]; /* south-east */
-    }
-  }
+  cl_int err;
+
+  // Set kernel arguments
+  err = clSetKernelArg(ocl.propagate, 0, sizeof(cl_mem), &ocl.cells);
+  checkError(err, "setting propagate arg 0", __LINE__);
+  err = clSetKernelArg(ocl.propagate, 1, sizeof(cl_mem), &ocl.tmp_cells);
+  checkError(err, "setting propagate arg 1", __LINE__);
+  err = clSetKernelArg(ocl.propagate, 2, sizeof(cl_mem), &ocl.obstacles);
+  checkError(err, "setting propagate arg 2", __LINE__);
+  err = clSetKernelArg(ocl.propagate, 3, sizeof(cl_int), &params.nx);
+  checkError(err, "setting propagate arg 3", __LINE__);
+  err = clSetKernelArg(ocl.propagate, 4, sizeof(cl_int), &params.ny);
+  checkError(err, "setting propagate arg 4", __LINE__);
+
+  // Enqueue kernel
+  size_t global[2] = {params.nx, params.ny};
+  err = clEnqueueNDRangeKernel(ocl.queue, ocl.propagate,
+                               2, NULL, global, NULL, 0, NULL, NULL);
+  checkError(err, "enqueueing propagate kernel", __LINE__);
+
+  // Wait for kernel to finish
+  err = clFinish(ocl.queue);
+  checkError(err, "waiting for propagate kernel", __LINE__);
 
   return EXIT_SUCCESS;
 }
 
-int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles)
+int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
 {
   /* loop over the cells in the grid */
   for (int jj = 0; jj < params.ny; jj++)
@@ -284,7 +337,7 @@ int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obsta
   return EXIT_SUCCESS;
 }
 
-int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles)
+int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
 {
   const float c_sq = 1.f / 3.f; /* square of speed of sound */
   const float w0 = 4.f / 9.f;  /* weighting factor */
@@ -387,7 +440,7 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
   return EXIT_SUCCESS;
 }
 
-float av_velocity(const t_param params, t_speed* cells, int* obstacles)
+float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
 {
   int    tot_cells = 0;  /* no. of cells used in calculation */
   float tot_u;          /* accumulated magnitudes of velocity for each cell */
@@ -440,13 +493,15 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles)
 
 int initialise(const char* paramfile, const char* obstaclefile,
                t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
-               int** obstacles_ptr, float** av_vels_ptr)
+               int** obstacles_ptr, float** av_vels_ptr, t_ocl *ocl)
 {
   char   message[1024];  /* message buffer */
   FILE*   fp;            /* file pointer */
   int    xx, yy;         /* generic array indices */
   int    blocked;        /* indicates whether a cell is blocked by an obstacle */
   int    retval;         /* to hold return value for checking */
+  char*  ocl_src;        /* OpenCL kernel source */
+  long   ocl_size;       /* size of OpenCL kernel source */
 
   /* open the parameter file */
   fp = fopen(paramfile, "r");
@@ -590,11 +645,83 @@ int initialise(const char* paramfile, const char* obstaclefile,
   */
   *av_vels_ptr = (float*)malloc(sizeof(float) * params->maxIters);
 
+
+  cl_int err;
+
+  ocl->device = selectOpenCLDevice();
+
+  // Create OpenCL context
+  ocl->context = clCreateContext(NULL, 1, &ocl->device, NULL, NULL, &err);
+  checkError(err, "creating context", __LINE__);
+
+  fp = fopen(OCLFILE, "r");
+  if (fp == NULL)
+  {
+    sprintf(message, "could not open OpenCL kernel file: %s", OCLFILE);
+    die(message, __LINE__, __FILE__);
+  }
+
+  // Create OpenCL command queue
+  ocl->queue = clCreateCommandQueue(ocl->context, ocl->device, 0, &err);
+  checkError(err, "creating command queue", __LINE__);
+
+  // Load OpenCL kernel source
+  fseek(fp, 0, SEEK_END);
+  ocl_size = ftell(fp) + 1;
+  ocl_src = (char*)malloc(ocl_size);
+  memset(ocl_src, 0, ocl_size);
+  fseek(fp, 0, SEEK_SET);
+  fread(ocl_src, 1, ocl_size, fp);
+  fclose(fp);
+
+  // Create OpenCL program
+  ocl->program = clCreateProgramWithSource(
+    ocl->context, 1, (const char**)&ocl_src, NULL, &err);
+  free(ocl_src);
+  checkError(err, "creating program", __LINE__);
+
+  // Build OpenCL program
+  err = clBuildProgram(ocl->program, 1, &ocl->device, "", NULL, NULL);
+  if (err == CL_BUILD_PROGRAM_FAILURE)
+  {
+    size_t sz;
+    clGetProgramBuildInfo(
+      ocl->program, ocl->device,
+      CL_PROGRAM_BUILD_LOG, 0, NULL, &sz);
+    char *buildlog = malloc(sz);
+    clGetProgramBuildInfo(
+      ocl->program, ocl->device,
+      CL_PROGRAM_BUILD_LOG, sz, buildlog, NULL);
+    fprintf(stderr, "\nOpenCL build log:\n\n%s\n", buildlog);
+    free(buildlog);
+  }
+  checkError(err, "building program", __LINE__);
+
+  // Create OpenCL kernels
+  ocl->accelerate_flow = clCreateKernel(ocl->program, "accelerate_flow", &err);
+  checkError(err, "creating accelerate_flow kernel", __LINE__);
+  ocl->propagate = clCreateKernel(ocl->program, "propagate", &err);
+  checkError(err, "creating propagate kernel", __LINE__);
+
+  // Allocate OpenCL buffers
+  ocl->cells = clCreateBuffer(
+    ocl->context, CL_MEM_READ_WRITE,
+    sizeof(t_speed) * params->nx * params->ny, NULL, &err);
+  checkError(err, "creating cells buffer", __LINE__);
+  ocl->tmp_cells = clCreateBuffer(
+    ocl->context, CL_MEM_READ_WRITE,
+    sizeof(t_speed) * params->nx * params->ny, NULL, &err);
+  checkError(err, "creating tmp_cells buffer", __LINE__);
+  ocl->obstacles = clCreateBuffer(
+    ocl->context, CL_MEM_READ_WRITE,
+    sizeof(cl_int) * params->nx * params->ny, NULL, &err);
+  checkError(err, "creating obstacles buffer", __LINE__);
+
   return EXIT_SUCCESS;
 }
 
 int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr,
-             int** obstacles_ptr, float** av_vels_ptr)
+             int** obstacles_ptr, float** av_vels_ptr, t_ocl ocl)
 {
   /*
   ** free up allocated memory
@@ -611,15 +738,24 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr
   free(*av_vels_ptr);
   *av_vels_ptr = NULL;
 
+  clReleaseMemObject(ocl.cells);
+  clReleaseMemObject(ocl.tmp_cells);
+  clReleaseMemObject(ocl.obstacles);
+  clReleaseKernel(ocl.accelerate_flow);
+  clReleaseKernel(ocl.propagate);
+  clReleaseProgram(ocl.program);
+  clReleaseCommandQueue(ocl.queue);
+  clReleaseContext(ocl.context);
+
   return EXIT_SUCCESS;
 }
 
 
-float calc_reynolds(const t_param params, t_speed* cells, int* obstacles)
+float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
 {
   const float viscosity = 1.f / 6.f * (2.f / params.omega - 1.f);
 
-  return av_velocity(params, cells, obstacles) * params.reynolds_dim / viscosity;
+  return av_velocity(params, cells, obstacles, ocl) * params.reynolds_dim / viscosity;
 }
 
 float total_density(const t_param params, t_speed* cells)
@@ -723,6 +859,16 @@ int write_values(const t_param params, t_speed* cells, int* obstacles, float* av
   return EXIT_SUCCESS;
 }
 
+void checkError(cl_int err, const char *op, const int line)
+{
+  if (err != CL_SUCCESS)
+  {
+    fprintf(stderr, "OpenCL error during '%s' on line %d: %d\n", op, line, err);
+    fflush(stderr);
+    exit(EXIT_FAILURE);
+  }
+}
+
 void die(const char* message, const int line, const char* file)
 {
   fprintf(stderr, "Error at line %d of file %s:\n", line, file);
@@ -735,4 +881,66 @@ void usage(const char* exe)
 {
   fprintf(stderr, "Usage: %s <paramfile> <obstaclefile>\n", exe);
   exit(EXIT_FAILURE);
+}
+
+#define MAX_DEVICES 32
+#define MAX_DEVICE_NAME 1024
+
+cl_device_id selectOpenCLDevice()
+{
+  cl_int err;
+  cl_uint num_platforms = 0;
+  cl_uint total_devices = 0;
+  cl_platform_id platforms[8];
+  cl_device_id devices[MAX_DEVICES];
+  char name[MAX_DEVICE_NAME];
+
+  // Get list of platforms
+  err = clGetPlatformIDs(8, platforms, &num_platforms);
+  checkError(err, "getting platforms", __LINE__);
+
+  // Get list of devices
+  for (cl_uint p = 0; p < num_platforms; p++)
+  {
+    cl_uint num_devices = 0;
+    err = clGetDeviceIDs(platforms[p], CL_DEVICE_TYPE_ALL,
+                         MAX_DEVICES-total_devices, devices+total_devices,
+                         &num_devices);
+    checkError(err, "getting device name", __LINE__);
+    total_devices += num_devices;
+  }
+
+  // Print list of devices
+  printf("\nAvailable OpenCL devices:\n");
+  for (cl_uint d = 0; d < total_devices; d++)
+  {
+    clGetDeviceInfo(devices[d], CL_DEVICE_NAME, MAX_DEVICE_NAME, name, NULL);
+    printf("%2d: %s\n", d, name);
+  }
+  printf("\n");
+
+  // Use first device unless OCL_DEVICE environment variable used
+  cl_uint device_index = 0;
+  char *dev_env = getenv("OCL_DEVICE");
+  if (dev_env)
+  {
+    char *end;
+    device_index = strtol(dev_env, &end, 10);
+    if (strlen(end))
+      die("invalid OCL_DEVICE variable", __LINE__, __FILE__);
+  }
+
+  if (device_index >= total_devices)
+  {
+    fprintf(stderr, "device index set to %d but only %d devices available\n",
+            device_index, total_devices);
+    exit(1);
+  }
+
+  // Print OpenCL device name
+  clGetDeviceInfo(devices[device_index], CL_DEVICE_NAME,
+                  MAX_DEVICE_NAME, name, NULL);
+  printf("Selected OpenCL device:\n-> %s (index=%d)\n\n", name, device_index);
+
+  return devices[device_index];
 }

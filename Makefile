@@ -6,6 +6,13 @@ CC=gcc
 CFLAGS= -std=c99 -Wall -O3
 LIBS = -lm
 
+PLATFORM = $(shell uname -s)
+ifeq ($(PLATFORM), Darwin)
+	LIBS += -framework OpenCL
+else
+	LIBS += -lOpenCL
+endif
+
 FINAL_STATE_FILE=./final_state.dat
 AV_VELS_FILE=./av_vels.dat
 REF_FINAL_STATE_FILE=check/128x128.final_state.dat

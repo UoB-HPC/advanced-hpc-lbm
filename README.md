@@ -8,6 +8,10 @@ In this repository you will find:
 
 ## Compiling and running
 
+You will need to load a CUDA module to compile OpenCL programs:
+
+    module load cuda/toolkit/7.5.18
+
 To compile type `make`.
 Editing the values for `CC` and `CFLAGS` in the Makefile can be used to enable different compiler options or use a different compiler.
 These can also be passed on the command line:
