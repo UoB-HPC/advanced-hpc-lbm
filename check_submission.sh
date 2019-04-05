@@ -7,7 +7,7 @@
 # This script will unload all modules and source 'env.sh' (if present). It will
 # then run `make` and check that there is an executable with the correct name.
 
-set -eu
+set -e
 
 EXE=d2q9-bgk
 ENV=env.sh
