@@ -89,15 +89,16 @@ Note that `check_submission.sh` does _not_ run your code, and so you _cannot_ ve
 
 
 # Serial output for sample inputs
-Running times were taken on a Phase 4 node.
+Run times were taken on a Phase 4 node using the base (gcc) compiler and base compiler flags as found in the Makefile:
+
 - 128x128
 ```
 ./d2q9-bgk  input_128x128.params obstacles_128x128.dat
 ==done==
 Reynolds number:		9.751927375793E+00
-Elapsed time:			31.141698 (s)
-Elapsed user CPU time:		31.144229 (s)
-Elapsed system CPU time:	0.002000 (s)
+Elapsed time:			38.387577 (s)
+Elapsed user CPU time:		38.388736 (s)
+Elapsed system CPU time:	0.003000 (s)
 ```
 
 - 128x256
@@ -105,9 +106,9 @@ Elapsed system CPU time:	0.002000 (s)
 ./d2q9-bgk  input_128x256.params obstacles_128x256.dat
 ==done==
 Reynolds number:		3.715003967285E+01
-Elapsed time:			63.553739 (s)
-Elapsed user CPU time:		63.558292 (s)
-Elapsed system CPU time:	0.004000 (s)
+Elapsed time:			77.446019 (s)
+Elapsed user CPU time:		77.450619 (s)
+Elapsed system CPU time:	0.003000 (s)
 ```
 
 - 256x256
@@ -115,9 +116,9 @@ Elapsed system CPU time:	0.004000 (s)
 ./d2q9-bgk  input_256x256.params obstacles_256x256.dat
 ==done==
 Reynolds number:		1.005141162872E+01
-Elapsed time:			259.721668 (s)
-Elapsed user CPU time:		259.744916 (s)
-Elapsed system CPU time:	0.005000 (s)
+Elapsed time:			309.040200 (s)
+Elapsed user CPU time:		309.061111 (s)
+Elapsed system CPU time:	0.004000 (s)
 ```
 
 - 1024x1024
@@ -125,9 +126,9 @@ Elapsed system CPU time:	0.005000 (s)
 ./d2q9-bgk  input_1024x1024.params obstacles_1024x1024.dat
 ==done==
 Reynolds number:		3.375851392746E+00
-Elapsed time:			1072.777873 (s)
-Elapsed user CPU time:		1072.855937 (s)
-Elapsed system CPU time:	0.018001 (s)
+Elapsed time:			1287.501875 (s)
+Elapsed user CPU time:		1287.568113 (s)
+Elapsed system CPU time:	0.029001 (s)
 ```
 
 # Visualisation
