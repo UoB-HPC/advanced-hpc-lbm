@@ -6,6 +6,7 @@
 #SBATCH --time 00:30:00
 #SBATCH --partition veryshort
 #SBATCH --reservation COMS30005
+#SBATCH --account COMS30005
 #SBATCH --output d2q9-bgk.out
 
 echo Running on host `hostname`
