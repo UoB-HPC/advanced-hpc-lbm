@@ -2,9 +2,9 @@
 
 #SBATCH --job-name d2q9-bgk
 #SBATCH --nodes 1
-#SBATCH --ntasks-per-node 1
+#SBATCH --ntasks-per-node 14
 #SBATCH --time 00:30:00
-#SBATCH --partition veryshort
+#SBATCH --partition cpu
 #SBATCH --reservation COMS30005
 #SBATCH --account COMS30005
 #SBATCH --output d2q9-bgk.out
