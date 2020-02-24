@@ -1,29 +1,28 @@
 #!/bin/bash
 
-#PBS -N d2q9-bgk
-#PBS -j oe
-#PBS -o d2q9-bgk.out
-#PBS -q teaching
-#PBS -l nodes=1:ppn=16:gpus=1,walltime=00:10:00
+#SBATCH --job-name d2q9-bgk
+#SBATCH --nodes 1
+#SBATCH --time 00:30:00
+#SBATCH --gres gpu:1
+#SBATCH --partition gpu
+#SBATCH --reservation COMS30005GPU
+#SBATCH --account COMS30005
+#SBATCH --output d2q9-bgk.out
+#SBATCH --exclusive
 
-# Change the working directory (default is home directory)
-cd "$PBS_O_WORKDIR"
 
-module load cuda/toolkit/7.5.18
+echo Running on host `hostname`
+echo Time is `date`
+echo Directory is `pwd`
+echo Slurm job ID is $SLURM_JOB_ID
+echo This job runs on the following machines:
+echo `echo $SLURM_JOB_NODELIST | uniq`
+echo GPU number: $CUDA_VISIBLE_DEVICES
 
-# Select the GPU that we've been allocated
-device=$(cat $PBS_GPUFILE)
-device=${device#*gpu}
-export OCL_DEVICE=$device
+export OCL_DEVICE=1
 
-echo "Running on host: $(hostname)"
-echo "Time is: $(date)"
-echo "Directory is: $(pwd)"
-echo "PBS job ID is: $PBS_JOBID"
-echo "This jobs runs on the following machines: $(cat "$PBS_NODEFILE" | uniq)"
-echo "GPU selected: $OCL_DEVICE"
-echo
-
-# Run the executable
+#! Run the executable
 ./d2q9-bgk input_128x128.params obstacles_128x128.dat
-
+#./d2q9-bgk input_128x256.params obstacles_128x256.dat
+#./d2q9-bgk input_256x256.params obstacles_256x256.dat
+#./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
