@@ -17,9 +17,8 @@ module list |& tail -n +2
 echo "Unloading all modules"
 module purge &>/dev/null
 
-echo "Loading default languages/intel module"
-module load shared dot torque/4.2.4.1 moab/7.2.9 default-environment
-module load languages/intel-compiler-16-u2
+echo "Loading default cuda module"
+module load libs/cuda/10.0-gcc-5.4.0-2.26
 
 if [ -r "$ENV" ]; then
     echo "Sourcing $ENV"
