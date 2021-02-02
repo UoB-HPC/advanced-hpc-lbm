@@ -5,8 +5,8 @@
 #SBATCH --ntasks-per-node 14
 #SBATCH --time 00:30:00
 #SBATCH --partition cpu
-#SBATCH --reservation COMS30005
-#SBATCH --account COMS30005
+#SBATCH --reservation COSC024002
+#SBATCH --account COSC024002
 #SBATCH --output d2q9-bgk.out
 
 echo Running on host `hostname`
