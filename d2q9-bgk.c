@@ -130,11 +130,8 @@ int main(int argc, char* argv[])
   t_speed* tmp_cells = NULL;    /* scratch space */
   int*     obstacles = NULL;    /* grid indicating which cells are blocked */
   float* av_vels   = NULL;     /* a record of the av. velocity computed for each timestep */
-  struct timeval timstr;        /* structure to hold elapsed time */
-  struct rusage ru;             /* structure to hold CPU time--system and user */
-  double tic, toc;              /* floating point numbers to calculate elapsed wallclock time */
-  double usrtim;                /* floating point number to record elapsed user CPU time */
-  double systim;                /* floating point number to record elapsed system CPU time */
+  struct timeval timstr;                                                             /* structure to hold elapsed time */
+  double tot_tic, tot_toc, init_tic, init_toc, comp_tic, comp_toc, col_tic, col_toc; /* floating point numbers to calculate elapsed wallclock time */
 
   /* parse the command line */
   if (argc != 3)
@@ -147,12 +144,16 @@ int main(int argc, char* argv[])
     obstaclefile = argv[2];
   }
 
-  /* initialise our data structures and load values from file */
+  /* Total/init time starts here: initialise our data structures and load values from file */
+  gettimeofday(&timstr, NULL);
+  tot_tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+  init_tic=tot_tic;
   initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels);
 
-  /* iterate for maxIters timesteps */
+  /* Init time stops here, compute time starts*/
   gettimeofday(&timstr, NULL);
-  tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+  init_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+  comp_tic=init_toc;
 
   for (int tt = 0; tt < params.maxIters; tt++)
   {
@@ -164,21 +165,26 @@ int main(int argc, char* argv[])
     printf("tot density: %.12E\n", total_density(params, cells));
 #endif
   }
-
+  
+  /* Compute time stops here, collate time starts*/
   gettimeofday(&timstr, NULL);
-  toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
-  getrusage(RUSAGE_SELF, &ru);
-  timstr = ru.ru_utime;
-  usrtim = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
-  timstr = ru.ru_stime;
-  systim = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+  comp_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+  col_tic=comp_toc;
 
+  // Collate data from ranks here 
+
+  /* Total/collate time stops here.*/
+  gettimeofday(&timstr, NULL);
+  col_toc = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+  tot_toc = col_toc;
+  
   /* write final values and free memory */
   printf("==done==\n");
   printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells, obstacles));
-  printf("Elapsed time:\t\t\t%.6lf (s)\n", toc - tic);
-  printf("Elapsed user CPU time:\t\t%.6lf (s)\n", usrtim);
-  printf("Elapsed system CPU time:\t%.6lf (s)\n", systim);
+  printf("Elapsed Init time:\t\t\t%.6lf (s)\n",    init_toc - init_tic);
+  printf("Elapsed Compute time:\t\t\t%.6lf (s)\n", comp_toc - comp_tic);
+  printf("Elapsed Collate time:\t\t\t%.6lf (s)\n", col_toc  - col_tic);
+  printf("Elapsed Total time:\t\t\t%.6lf (s)\n",   tot_toc  - tot_tic);
   write_values(params, cells, obstacles, av_vels);
   finalise(&params, &cells, &tmp_cells, &obstacles, &av_vels);
 
