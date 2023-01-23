@@ -7,6 +7,7 @@
 #SBATCH --partition=teach_cpu
 #SBATCH --account=COSC028844
 #SBATCH --output d2q9-bgk.out
+#SBATCH --exclusive 
 
 echo Running on host `hostname`
 echo Time is `date`
