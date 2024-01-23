@@ -95,40 +95,43 @@ Run times were taken on a Phase 4 node using the base (gcc) compiler and base co
 ```
 ./d2q9-bgk  input_128x128.params obstacles_128x128.dat
 ==done==
-Reynolds number:		9.751927375793E+00
-Elapsed time:			38.387577 (s)
-Elapsed user CPU time:		38.388736 (s)
-Elapsed system CPU time:	0.003000 (s)
+Reynolds number:                9.751927375793E+00
+Elapsed Init time:                      0.008549 (s)
+Elapsed Compute time:                   32.706913 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     32.715462 (s)
 ```
 
 - 128x256
 ```
-./d2q9-bgk  input_128x256.params obstacles_128x256.dat
 ==done==
-Reynolds number:		3.715003967285E+01
-Elapsed time:			77.446019 (s)
-Elapsed user CPU time:		77.450619 (s)
-Elapsed system CPU time:	0.003000 (s)
+Reynolds number:                3.715003967285E+01
+Elapsed Init time:                      0.026452 (s)
+Elapsed Compute time:                   65.973017 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     65.999469 (s)
 ```
 
 - 256x256
 ```
 ./d2q9-bgk  input_256x256.params obstacles_256x256.dat
 ==done==
-Reynolds number:		1.005141162872E+01
-Elapsed time:			309.040200 (s)
-Elapsed user CPU time:		309.061111 (s)
-Elapsed system CPU time:	0.004000 (s)
+Reynolds number:                1.005141162872E+01
+Elapsed Init time:                      0.018062 (s)
+Elapsed Compute time:                   263.480558 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     263.498620 (s)
 ```
 
 - 1024x1024
 ```
 ./d2q9-bgk  input_1024x1024.params obstacles_1024x1024.dat
 ==done==
-Reynolds number:		3.375851392746E+00
-Elapsed time:			1287.501875 (s)
-Elapsed user CPU time:		1287.568113 (s)
-Elapsed system CPU time:	0.029001 (s)
+Reynolds number:                3.375851392746E+00
+Elapsed Init time:                      0.013054 (s)
+Elapsed Compute time:                   1097.257147 (s)
+Elapsed Collate time:                   0.000000 (s)
+Elapsed Total time:                     1097.270201 (s)
 ```
 
 # Visualisation
