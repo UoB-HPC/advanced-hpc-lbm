@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=00:10:00
 #SBATCH --partition=teach_cpu
-#SBATCH --account=COMS031424
+#SBATCH --account=COMS033964
 #SBATCH --output=d2q9-bgk.out
 #SBATCH --exclusive 
 
