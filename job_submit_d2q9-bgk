@@ -2,11 +2,9 @@
 
 #SBATCH --job-name=d2q9-bgk
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=2
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --time=00:10:00
-#SBATCH --partition=teach_cpu
-#SBATCH --account=COMS033964
 #SBATCH --output=d2q9-bgk.out
 #SBATCH --exclusive 
 
@@ -17,8 +15,12 @@ echo Slurm job ID is $SLURM_JOB_ID
 echo This job runs on the following machines:
 echo `echo $SLURM_JOB_NODELIST | uniq`
 
+GRID=128x128
+#GRID=128x256
+#GRID=256x256
+#GRID=1024x1024
+
 #! Run the executable
-./d2q9-bgk input_128x128.params obstacles_128x128.dat
-#./d2q9-bgk input_128x256.params obstacles_128x256.dat
-#./d2q9-bgk input_256x256.params obstacles_256x256.dat
-#./d2q9-bgk input_1024x1024.params obstacles_1024x1024.dat
+./d2q9-bgk input_$GRID.params obstacles_$GRID.dat
+make check REF_AV_VELS_FILE=check/$GRID.av_vels.dat REF_FINAL_STATE_FILE=check/$GRID.final_state.dat
+
