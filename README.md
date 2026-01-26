@@ -22,7 +22,7 @@ eg:
 
 ## Checking results
 
-An automated result checking function is provided that requires you to load a particular Python module (`module load languages/python/3.12.3`). Running `make check` will check the output file (average velocities and final state) against some reference results. By default, it should look something like this:
+An automated result checking function is provided that requires you to load a particular Python module (`module load cray-python/3.11.7`). Running `make check` will check the output file (average velocities and final state) against some reference results. By default, it should look something like this:
 
     $ make check
     python check/check.py --ref-av-vels-file=check/128x128.av_vels.dat --ref-final-state-file=check/128x128.final_state.dat --av-vels-file=./av_vels.dat --final-state-file=./final_state.dat

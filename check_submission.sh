@@ -17,8 +17,8 @@ module list |& tail -n +2
 echo "Unloading all modules"
 module purge
 
-echo "Loading default languages/intel module"
-module load languages/intel
+echo "Loading default compilers PrgEnv-gnu"
+module load PrgEnv-gnu
 
 if [ -r "$ENV" ]; then
     echo "Sourcing $ENV"
